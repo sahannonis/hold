@@ -24,9 +24,10 @@ The version code goes up by one on every run, so each upload is accepted.
 
 ## Signing
 
-Release builds are signed with the upload key from these repository secrets:
-`HOLD_KEYSTORE_B64`, `HOLD_KEYSTORE_PASSWORD`, `HOLD_KEY_ALIAS`, `HOLD_KEY_PASSWORD`.
-Without them the `.aab` is unsigned and Play Console will refuse it.
+Release builds are signed with the upload key in `keys/hold-upload.jks`. The file is locked with a password,
+and that password lives only in the repository secret `HOLD_KEYSTORE_PASSWORD`.
+Without the secret the `.aab` is unsigned and Play Console will refuse it.
+Keep this repository private.
 
 ## App ID
 

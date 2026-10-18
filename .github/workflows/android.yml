@@ -45,27 +45,40 @@ jobs:
           v=$(npm ls @capacitor/android @capacitor/core @capacitor/haptics 2>/dev/null | tr '\n' ' ')
           echo "::notice title=Versions::${v}"
 
-      - name: Restore the upload key
+      - name: Find the upload key
         env:
           KEYSTORE_B64: ${{ secrets.HOLD_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.HOLD_KEYSTORE_PASSWORD }}
         run: |
-          if [ -n "$KEYSTORE_B64" ]; then
+          if [ -z "$KS_PASS" ]; then
+            echo "::warning title=Signing::No HOLD_KEYSTORE_PASSWORD secret yet, so the .aab is unsigned and Play Console will refuse it."
+          elif [ -n "$KEYSTORE_B64" ]; then
             echo "$KEYSTORE_B64" | tr -d ' \n\r' | base64 -d > "$RUNNER_TEMP/upload.jks"
             echo "HOLD_KEYSTORE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
-            echo "::notice title=Signing::Upload key found, release files will be signed."
+          elif [ -f keys/hold-upload.jks ]; then
+            cp keys/hold-upload.jks "$RUNNER_TEMP/upload.jks"
+            echo "HOLD_KEYSTORE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
           else
-            echo "::warning title=Signing::No HOLD_KEYSTORE_B64 secret yet, so the .aab is unsigned and Play Console will refuse it."
+            echo "::error title=Signing::Password secret is set but no keystore was found."
+            exit 1
           fi
 
       - name: Build test APK and Play Store bundle
         working-directory: android
         env:
           HOLD_KEYSTORE_PASSWORD: ${{ secrets.HOLD_KEYSTORE_PASSWORD }}
-          HOLD_KEY_ALIAS: ${{ secrets.HOLD_KEY_ALIAS }}
-          HOLD_KEY_PASSWORD: ${{ secrets.HOLD_KEY_PASSWORD }}
+          HOLD_KEY_ALIAS: ${{ secrets.HOLD_KEY_ALIAS || 'hold-upload' }}
+          HOLD_KEY_PASSWORD: ${{ secrets.HOLD_KEY_PASSWORD || secrets.HOLD_KEYSTORE_PASSWORD }}
         run: |
           chmod +x gradlew
           ../scripts/ci-run.sh "gradle" ./gradlew --no-daemon assembleDebug bundleRelease
+
+      - name: Check the signature
+        run: |
+          f=$(ls android/app/build/outputs/bundle/release/*.aab)
+          signer=$(keytool -printcert -jarfile "$f" 2>/dev/null | grep -m1 "Owner:" || true)
+          if [ -n "$signer" ]; then echo "::notice title=Signed::$signer"; echo "SIGNED=1" >> "$GITHUB_ENV"
+          else echo "::warning title=Signed::The .aab has no signature."; fi
 
       - name: Collect files
         run: |
@@ -85,7 +98,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           N: ${{ github.run_number }}
         run: |
-          if [ -n "${HOLD_KEYSTORE:-}" ]; then
+          if [ -n "${SIGNED:-}" ]; then
             signed="signed with your upload key, ready for Play Console"
           else
             signed="UNSIGNED. Add the signing secrets and rebuild before uploading to Play Console"
