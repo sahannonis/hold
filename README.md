@@ -28,6 +28,6 @@ Release builds are signed with the upload key from these repository secrets:
 `HOLD_KEYSTORE_B64`, `HOLD_KEYSTORE_PASSWORD`, `HOLD_KEY_ALIAS`, `HOLD_KEY_PASSWORD`.
 Without them the `.aab` is unsigned and Play Console will refuse it.
 
-## Before the first Play upload
+## App ID
 
-The app ID in `capacitor.config.json` (`com.holdgame.hold`) becomes permanent once uploaded. Change it to your studio's ID first.
+`com.twelfthhouseprotocol.hold`, published by 12th House Protocol. It becomes permanent at the first Play upload, so never change it after that.
