@@ -1,0 +1,72 @@
+name: Build Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install packages
+        run: npm install --no-audit --no-fund
+
+      - name: Build the web game for the app
+        run: node scripts/build-web.mjs
+
+      - name: Create the Android project
+        run: |
+          npx cap add android
+          npx @capacitor/assets generate --android --iconBackgroundColor '#0e0b10' --iconBackgroundColorDark '#0e0b10' --splashBackgroundColor '#0e0b10' --splashBackgroundColorDark '#0e0b10'
+          node scripts/patch-android.mjs
+          npx cap sync android
+          npm ls @capacitor/android @capacitor/core @capacitor/haptics || true
+
+      - name: Restore the upload key
+        env:
+          KEYSTORE_B64: ${{ secrets.HOLD_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/upload.jks"
+            echo "HOLD_KEYSTORE=$RUNNER_TEMP/upload.jks" >> "$GITHUB_ENV"
+          else
+            echo "::warning::No HOLD_KEYSTORE_B64 secret: the .aab will be unsigned and Play Console will refuse it."
+          fi
+
+      - name: Build test APK and Play Store bundle
+        working-directory: android
+        env:
+          HOLD_KEYSTORE_PASSWORD: ${{ secrets.HOLD_KEYSTORE_PASSWORD }}
+          HOLD_KEY_ALIAS: ${{ secrets.HOLD_KEY_ALIAS }}
+          HOLD_KEY_PASSWORD: ${{ secrets.HOLD_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease bundleRelease
+
+      - name: Collect files
+        run: |
+          mkdir -p out
+          cp android/app/build/outputs/bundle/release/*.aab out/hold-${{ github.run_number }}.aab
+          cp android/app/build/outputs/apk/release/*.apk out/hold-${{ github.run_number }}-phone-test.apk
+          ls -la out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hold-build-${{ github.run_number }}
+          path: out/
+          retention-days: 30

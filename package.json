@@ -1,0 +1,23 @@
+{
+  "name": "hold",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hold: Don't Let Go. Keep your thumb on the circle.",
+  "scripts": {
+    "build:web": "node scripts/build-web.mjs",
+    "android:create": "npx cap add android && npx @capacitor/assets generate --android && node scripts/patch-android.mjs && npx cap sync android",
+    "android:sync": "node scripts/build-web.mjs && npx cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "latest",
+    "@capacitor/core": "latest",
+    "@capacitor/haptics": "latest"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "latest",
+    "@capacitor/cli": "latest",
+    "@fontsource/big-shoulders-display": "latest",
+    "@fontsource/dm-mono": "latest",
+    "@fontsource/instrument-sans": "latest"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "appId": "com.holdgame.hold",
+  "appName": "Hold",
+  "webDir": "dist",
+  "backgroundColor": "#0e0b10",
+  "android": {
+    "backgroundColor": "#0e0b10",
+    "adjustMarginsForEdgeToEdge": "force",
+    "allowMixedContent": false,
+    "webContentsDebuggingEnabled": false
+  },
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK"
+    }
+  }
+}
