@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -62,13 +65,13 @@ jobs:
           HOLD_KEY_PASSWORD: ${{ secrets.HOLD_KEY_PASSWORD }}
         run: |
           chmod +x gradlew
-          ../scripts/ci-run.sh "gradle" ./gradlew --no-daemon assembleRelease bundleRelease
+          ../scripts/ci-run.sh "gradle" ./gradlew --no-daemon assembleDebug bundleRelease
 
       - name: Collect files
         run: |
           mkdir -p out
           cp android/app/build/outputs/bundle/release/*.aab out/hold-${{ github.run_number }}.aab
-          cp android/app/build/outputs/apk/release/*.apk out/hold-${{ github.run_number }}-phone-test.apk
+          cp android/app/build/outputs/apk/debug/*.apk out/hold-${{ github.run_number }}-phone-test.apk
           echo "::notice title=Built::$(ls out | tr '\n' ' ')"
 
       - uses: actions/upload-artifact@v4
@@ -76,3 +79,24 @@ jobs:
           name: hold-build-${{ github.run_number }}
           path: out/
           retention-days: 30
+
+      - name: Publish to the Releases page
+        env:
+          GH_TOKEN: ${{ github.token }}
+          N: ${{ github.run_number }}
+        run: |
+          if [ -n "${HOLD_KEYSTORE:-}" ]; then
+            signed="signed with your upload key, ready for Play Console"
+          else
+            signed="UNSIGNED. Add the signing secrets and rebuild before uploading to Play Console"
+          fi
+          cat > notes.md <<EOF
+          **On your phone:** tap hold-${N}-phone-test.apk to download and install it. Allow installs from your browser if Android asks.
+
+          **For Play Console:** hold-${N}.aab is ${signed}.
+
+          Built from commit ${GITHUB_SHA::7}.
+          EOF
+          sed -i 's/^          //' notes.md
+          gh release create "build-${N}" out/* --target "$GITHUB_SHA" --title "Hold build ${N}" --notes-file notes.md --prerelease
+          echo "::notice title=Released::build-${N}"
