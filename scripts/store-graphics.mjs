@@ -88,17 +88,26 @@ async function framePage(html, w, h, file) {
   writeFileSync(tmp, `<!doctype html><meta charset="utf-8"><style>${faces}\nhtml,body{margin:0;background:${INK}}</style>${html}`);
   await page.goto('file://' + tmp);
   await page.evaluate(() => document.fonts.ready);
+  if (html.includes('dataset.ready')) await page.waitForFunction(() => document.body.dataset.ready === '1');
   const buf = await page.screenshot({ type: 'png' });
   writeFileSync(join(out, file), await flat(buf));
   await ctx.close();
 }
 for (let i = 0; i < raw.length; i++) {
   const img = 'data:image/png;base64,' + raw[i].toString('base64');
+  // caption box is the same size on every screenshot, so the phone frame sits in the same place;
+  // a caption that needs more than two lines is shrunk until it fits
   await framePage(`
-    <div style="width:1080px;height:1920px;display:flex;flex-direction:column;align-items:center;gap:64px;padding-top:150px;box-sizing:border-box">
-      <h1 style="margin:0;max-width:900px;text-align:center;color:#efe6dc;font:900 124px/0.92 'Big Shoulders Display',sans-serif;text-transform:uppercase;letter-spacing:.01em;text-wrap:balance">${CAPTIONS[i]}</h1>
-      <img src="${img}" style="width:760px;height:1351px;border-radius:48px;box-shadow:0 0 0 3px #2a2230,0 40px 140px rgba(255,90,60,.16)">
-    </div>`, 1080, 1920, `screenshot-${i + 1}.png`);
+    <div style="width:1080px;height:1920px;display:flex;flex-direction:column;align-items:center;gap:56px;padding-top:120px;box-sizing:border-box">
+      <div id="cap" style="height:250px;width:960px;display:flex;align-items:center;justify-content:center">
+        <h1 id="h" style="margin:0;text-align:center;color:#efe6dc;font:900 124px/0.92 'Big Shoulders Display',sans-serif;text-transform:uppercase;letter-spacing:.01em;text-wrap:balance">${CAPTIONS[i]}</h1>
+      </div>
+      <img src="${img}" style="width:778px;height:1384px;border-radius:48px;box-shadow:0 0 0 3px #2a2230,0 40px 140px rgba(255,90,60,.16)">
+    </div>
+    <script>
+      const h = document.getElementById('h'); let s = 124;
+      document.fonts.ready.then(() => { while (h.offsetHeight > 250 && s > 60) { s -= 4; h.style.fontSize = s + 'px'; } document.body.dataset.ready = 1; });
+    </script>`, 1080, 1920, `screenshot-${i + 1}.png`);
 }
 
 // ---------- feature graphic ----------
